@@ -16,7 +16,7 @@ class Predictor:
         self.model = model
         self.predict(verbose)
         
-    def display(self):
+    def display(self, verbose = True):
         fig, ax = plt.subplots(figsize=(15, 5))
         fig.canvas.manager.set_window_title("Actual vs Predicted")
 
@@ -32,9 +32,11 @@ class Predictor:
         ax.set_ylabel('Demand (MW)')
         ax.legend()
         plt.tight_layout()
-        plt.show()
+        plt.savefig('graphs/actual_vs_predicted.png', dpi=150)
+        if verbose:
+            plt.show()
         
-    def evaluate(self):
+    def evaluate(self, verbose = True):
         
         importance_df = pd.DataFrame({
             'feature': self.df.feature_cols,
@@ -54,10 +56,12 @@ class Predictor:
         ax.set_xlabel('Importance Score')
         ax.set_ylabel('Feature')
         plt.tight_layout()
-        plt.show()
+        plt.savefig('graphs/feature_importance.png', dpi=150)
+        if verbose:
+            plt.show()
 
-        print('Top 10 most important features:')
-        print(importance_df.head(10).to_string(index=False))
+            print('Top 10 most important features:')
+            print(importance_df.head(10).to_string(index=False))
         
     def predict(self, verbose = True):
         self.y_pred = self.model.model.predict(self.df.X_test)
@@ -75,5 +79,5 @@ class Predictor:
             else:
                 print('Room for improvement. Consider more lag features or hyperparameter tuning.')
             
-            self.display()
-            self.evaluate()
+        self.display(verbose)
+        self.evaluate(verbose)

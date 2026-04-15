@@ -7,12 +7,12 @@ from pipeline.data import Data
 from pipeline.process import DataProcessor
 from pipeline.anomaly import Anomaly
 from pipeline.feature import Feature
-from pipeline.model import Model
+from pipeline.model import LightGBM, XGBoost
 from pipeline.predictor import Predictor
 
 class PipeLine:
     data: Data
-    model: Model
+    model = None
     predictor: Predictor
     verbose: bool
     
@@ -28,10 +28,13 @@ class PipeLine:
         self.data.merge(self.verbose)
         Feature(self.data, self.verbose)
         
-    def predict(self, file: str):
+    def predict(self, file: str, regressor: str):
         print("Predicting...")
         self.data.split(self.verbose)
-        self.model = Model(self.data, self.verbose)
+        if regressor == 'XGBR':
+            self.model = XGBoost(self.data, self.verbose)
+        elif regressor == 'LGBR':
+            self.model = LightGBM(self.data, self.verbose)
         self.predictor = Predictor(self.data, self.model, self.verbose)
         print("Saving Prediction... ", file)
         self.data.save(file, self.predictor.y_pred)
