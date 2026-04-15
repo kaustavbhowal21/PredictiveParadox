@@ -56,7 +56,7 @@ class DataProcessor:
             print('Weather date range:', self.df.df_weather['datetime'].min(), 'to', self.df.df_weather['datetime'].max())
             
             print('Demand columns:', self.df.df_demand.columns.tolist())
-            print('Location columns:', self.df.df_locate.columns.tolist())
+            # print('Location columns:', self.df.df_locate.columns.tolist())
             print('Weather columns:', self.df.df_weather.columns.tolist())
             
     def remove_duplicates(self, verbose = True):

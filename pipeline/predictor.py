@@ -6,13 +6,13 @@ import seaborn as sns
 from sklearn.metrics import mean_absolute_percentage_error
 
 class Predictor:
-    df: ld.Data
+    test: ld.Data
     model: ml.Model
     y_pred: pd.Series
     mape = 0.0
     
-    def __init__(self, data, model, verbose = True):
-        self.df = data
+    def __init__(self, test, model, verbose = True):
+        self.test = test
         self.model = model
         self.predict(verbose)
         
@@ -22,12 +22,12 @@ class Predictor:
 
         start = 0
         end = -1
-        ax.plot(self.df.test_df['datetime'].values[start:end], self.df.y_test.values[start:end],
+        ax.plot(self.test.df_merged['datetime'].values[start:end], self.test.df_finalY.values[start:end],
                 label='Actual', color='steelblue', linewidth=1.2)
-        ax.plot(self.df.test_df['datetime'].values[start:end], self.y_pred[start:end],
+        ax.plot(self.test.df_merged['datetime'].values[start:end], self.y_pred[start:end],
                 label='Predicted', color='tomato', linewidth=1.2, linestyle='--')
 
-        ax.set_title(f'Actual vs Predicted Demand — Month 1\nMAPE: {self.mape:.2f}%')
+        ax.set_title(f'Actual vs Predicted Demand —\nMAPE: {self.mape:.2f}%')
         ax.set_xlabel('Date')
         ax.set_ylabel('Demand (MW)')
         ax.legend()
@@ -39,7 +39,7 @@ class Predictor:
     def evaluate(self, verbose = True):
         
         importance_df = pd.DataFrame({
-            'feature': self.df.feature_cols,
+            'feature': self.test.feature_cols,
             'importance': self.model.model.feature_importances_
         }).sort_values('importance', ascending=False)
 
@@ -64,11 +64,11 @@ class Predictor:
             print(importance_df.head(10).to_string(index=False))
         
     def predict(self, verbose = True):
-        self.y_pred = self.model.model.predict(self.df.X_test)
+        self.y_pred = self.model.model.predict(self.test.df_finalX)
         
         # Calculate MAPE
         # MAPE = average of |actual - predicted| / actual * 100%
-        self.mape = mean_absolute_percentage_error(self.df.y_test, self.y_pred) * 100
+        self.mape = mean_absolute_percentage_error(self.test.df_finalY, self.y_pred) * 100
         if verbose:
             print(f'\n=== TEST MAPE: {self.mape:.2f}% ===')
             print()
