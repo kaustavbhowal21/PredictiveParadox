@@ -11,11 +11,9 @@ class Anomaly:
     
     def __init__(self, data: ld.Data, verbose = True):
         self.df = data
-        if verbose:
-            self.display_before()
+        self.display_before(verbose)
         self.detect(verbose)
-        if verbose:
-            self.display_after()
+        self.display_after(verbose)
         
     def detect(self, verbose = True):         
         rolling_mean = self.df.df_demand['demand_mw'].rolling(window=WINDOW, center=True, min_periods=1).mean()
@@ -30,7 +28,7 @@ class Anomaly:
         self.df.df_demand.loc[is_anomaly, 'demand_mw'] = rolling_mean[is_anomaly]
 
         
-    def display_before(self):
+    def display_before(self, verbose):
         fig = plt.figure(figsize=(15, 4))
         fig.canvas.manager.set_window_title("Anomalous Electricity Demand")
         plt.plot(self.df.df_demand['datetime'], self.df.df_demand['demand_mw'], linewidth=0.5, color='steelblue')
@@ -38,9 +36,11 @@ class Anomaly:
         plt.xlabel('Date')
         plt.ylabel('Demand (MW)')
         plt.tight_layout()
-        plt.show()
+        plt.savefig('graphs/anomalous_demand.png')
+        if verbose:
+            plt.show()
         
-    def display_after(self):
+    def display_after(self, verbose):
         fig = plt.figure(figsize=(15, 4))
         fig.canvas.manager.set_window_title("Anomaly Free Electricity Demand")
         plt.plot(self.df.df_demand['datetime'], self.df.df_demand['demand_mw'], linewidth=0.5, color='green')
@@ -48,5 +48,7 @@ class Anomaly:
         plt.xlabel('Date')
         plt.ylabel('Demand (MW)')
         plt.tight_layout()
-        plt.show()
+        plt.savefig('graphs/clean_demand.png')
+        if verbose:
+            plt.show()
 

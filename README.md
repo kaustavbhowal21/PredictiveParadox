@@ -164,3 +164,65 @@ Major libraries used in this project:
 - Prediction output is saved inside `dataset/`, even though only the filename is passed to `pipe.predict(...)`.
 - Visualization display depends on the `verbose` flag. Image files are still written to the `graphs/` directory.
 - The notebook `predictive_paradox_pipeline.ipynb` appears to be the exploratory or development version of the workflow, while `main.py` is the runnable script entry point.
+
+---
+
+## Flask Setup
+
+```bash
+# Run the app
+python app.py
+# → Open http://localhost:5000
+```
+
+---
+
+## Features
+
+### Pipeline I (`/pipeline1`)
+- Upload **training demand** + **training weather** files
+- Upload optional **economic CSV** (passed to pipeline if present)
+- Add **multiple test dataset tabs** (Dataset 1, Dataset 2, ...) for the same trained model
+- Each tab has its own demand + weather upload zones
+- On submit: calls `PipeLine1(train_files).train_model()` → `.upload(test_files)` → `.predict()`
+- Results page: metrics, interactive Chart.js line chart, data preview table, download button
+
+### Pipeline II (`/pipeline2`)
+- Upload **PGCB power demand** + **weather** files
+- Optional **economic CSV**
+- Interactive **year-split slider** (2019–2026) with visual train/test proportion bar
+- On submit: calls `PipeLine2(data_files).split(year).train_model().predict()`
+- Results page: metrics including MAPE, actual vs predicted chart, residuals bar chart, download
+
+### UX
+- **Loading overlay** with animated orbital rings while ML model trains
+- Live **progress messages** polled every 1.5 seconds from backend
+- **Toast notifications** for errors and completion
+- **Drag-and-drop** file upload zones
+- Fully responsive dark/white shiny theme matching the problem statement aesthetic
+
+---
+
+## How Jobs Work
+
+The backend uses Python `threading` + an in-memory `jobs` dict:
+1. POST to `/api/run_pipeline1` or `/api/run_pipeline2` → saves files, starts thread, returns `job_id`
+2. Frontend polls `/api/job_status/<job_id>` every 1.5s
+3. When status = `"done"`, frontend fetches `/api/get_results/<job_id>` for chart data
+4. Download via `/api/download/<job_id>`
+
+---
+
+## Extending for Multi-Tab Predictions
+
+The backend currently passes the **first test tab** to `PipeLine1`. To support multiple test tabs predicting independently, extend `run_pipeline1_job` to loop over `test_file_groups` and call `pipe.upload(...)` + `pipe.predict(...)` for each group, storing multiple output paths in `jobs[job_id]['outputs']`.
+
+---
+
+## Theme
+
+Inspired by the Predictive Paradox PDF cover:
+- Pure black background with starfield and perspective grid floor
+- **Orbitron** display font, **Rajdhani** body, **Space Mono** for data/labels  
+- White-on-black with glowing borders and subtle radial gradients
+- Orbital animation for loading screen

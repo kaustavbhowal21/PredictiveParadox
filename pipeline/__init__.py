@@ -61,8 +61,6 @@ class PipeLine1:
         self.test.df_weather.drop('flag', axis=1)
         self.test.df_merged.drop('flag', axis=1)
         
-        print(self.test.df_merged)
-        
         self.test.prepare(feature_cols, 'target_demand_mw', self.verbose)
         
     def train_model(self):

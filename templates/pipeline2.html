@@ -1,0 +1,355 @@
+{% extends "base.html" %}
+{% block title %}Pipeline II — Predictive Paradox{% endblock %}
+
+{% block head %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+.page-container { max-width: 1100px; margin: 0 auto; padding: 3rem 2.5rem 8rem; }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+.chart-container { position:relative; height:380px; background:var(--surface); border:1px solid var(--border); padding:1.5rem; margin-top:1.5rem; }
+.metrics-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(160px,1fr)); gap:1rem; margin-top:1.5rem; }
+.metric-card { background:var(--surface); border:1px solid var(--border); padding:1.5rem; text-align:center; }
+.metric-val { font-family:var(--font-display); font-size:1.8rem; font-weight:700; }
+.metric-lbl { font-family:var(--font-mono); font-size:0.65rem; color:var(--gray-400); letter-spacing:0.15em; margin-top:0.3rem; }
+.optional-badge { font-family:var(--font-mono); font-size:0.6rem; color:var(--gray-600); background:var(--surface); border:1px solid var(--border); padding:0.15rem 0.5rem; }
+.results-hidden { display:none; }
+.year-slider-container { margin-top:1rem; }
+.year-display { font-family:var(--font-display); font-size:3rem; font-weight:800; text-align:center; line-height:1; }
+.year-sublabel { font-family:var(--font-mono); font-size:0.65rem; color:var(--gray-400); text-align:center; margin-top:0.3rem; letter-spacing:0.15em; }
+input[type="range"] {
+  width:100%; height:2px; background:var(--border); outline:none; cursor:pointer; margin:1.5rem 0;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance:none; width:16px; height:16px; background:var(--white); border-radius:50%; cursor:pointer;
+  box-shadow:0 0 10px rgba(255,255,255,0.4);
+}
+input[type="range"]::-webkit-slider-thumb:hover { box-shadow:0 0 20px rgba(255,255,255,0.7); }
+.split-visual { display:flex; height:8px; border-radius:2px; overflow:hidden; margin:0.5rem 0; gap:2px; }
+.split-train { background:rgba(255,255,255,0.6); transition:flex 0.3s; }
+.split-test { background:rgba(255,255,255,0.2); transition:flex 0.3s; }
+.split-labels { display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:0.65rem; color:var(--gray-400); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-container">
+
+  <!-- Header -->
+  <div class="animate-in" style="margin-bottom:3rem;">
+    <div class="section-tag">
+      <a href="/" style="color:inherit; text-decoration:none;">Home</a> / Pipeline II
+    </div>
+    <h1 style="font-size:2.5rem; text-transform:uppercase; margin-bottom:0.75rem;">
+      Pipeline <span style="color:var(--gray-400);">II</span>
+    </h1>
+    <p style="color:var(--gray-400); font-family:var(--font-body); font-size:1rem; max-width:600px;">Upload the full PGCB + weather dataset. Choose a split year — data before it trains the model, data from it onward is the held-out test set.</p>
+  </div>
+
+  <form id="pipeline2Form" enctype="multipart/form-data">
+
+    <!-- DATA FILES -->
+    <div class="animate-in delay-1" style="margin-bottom:2.5rem;">
+      <div class="card" style="padding:2rem;">
+        <div style="font-family:var(--font-mono); font-size:0.7rem; color:var(--gray-400); letter-spacing:0.15em; margin-bottom:1.5rem;">01 — DATASET FILES</div>
+        <div class="two-col" style="gap:1.5rem; margin-bottom:1.5rem;">
+          <div>
+            <label class="field-label">PGCB Power Demand <span style="color:var(--gray-600);">(.xlsx)</span></label>
+            <div class="upload-zone" id="zone_pgcb">
+              <input type="file" name="pgcb_data" accept=".xlsx,.xls" required>
+              <div class="upload-icon"><i class="fas fa-bolt"></i></div>
+              <p>Drop PGCB_date_power_demand.xlsx</p>
+            </div>
+          </div>
+          <div>
+            <label class="field-label">Weather Data <span style="color:var(--gray-600);">(.xlsx)</span></label>
+            <div class="upload-zone" id="zone_weather">
+              <input type="file" name="weather_data" accept=".xlsx,.xls" required>
+              <div class="upload-icon"><i class="fas fa-cloud"></i></div>
+              <p>Drop weather_data.xlsx</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Economic (optional) -->
+        <div>
+          <label class="field-label">Economic Indicators <span class="optional-badge">OPTIONAL</span> <span style="color:var(--gray-600); font-family:var(--font-mono); font-size:0.65rem;">(.csv)</span></label>
+          <div class="upload-zone" id="zone_economic" style="padding:1.5rem;">
+            <input type="file" name="economic" accept=".csv,.xlsx,.xls">
+            <div class="upload-icon" style="font-size:1.4rem;"><i class="fas fa-chart-line"></i></div>
+            <p style="font-size:0.8rem;">Drop economic_full_1.csv (optional)</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SPLIT YEAR -->
+    <div class="animate-in delay-2" style="margin-bottom:2.5rem;">
+      <div class="card" style="padding:2rem;">
+        <div style="font-family:var(--font-mono); font-size:0.7rem; color:var(--gray-400); letter-spacing:0.15em; margin-bottom:1.5rem;">02 — CHRONOLOGICAL SPLIT</div>
+
+        <div style="max-width:500px; margin:0 auto;">
+          <div class="year-display" id="yearDisplay">2024</div>
+          <div class="year-sublabel">SPLIT YEAR — TEST SET BEGINS</div>
+
+          <div class="year-slider-container">
+            <input type="range" id="yearSlider" name="split_year" min="2019" max="2026" value="2024" step="1">
+          </div>
+
+          <div class="split-visual">
+            <div class="split-train" id="splitTrain" style="flex:5;"></div>
+            <div class="split-test" id="splitTest" style="flex:1;"></div>
+          </div>
+          <div class="split-labels">
+            <span id="trainLabel">Training: before 2024</span>
+            <span id="testLabel">Test: 2024 onward</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SUBMIT -->
+    <div class="animate-in delay-3" style="display:flex; gap:1rem; align-items:center;">
+      <button type="submit" class="btn btn-primary" id="submitBtn">
+        <i class="fas fa-play"></i>
+        Split, Train & Predict
+      </button>
+      <div id="runStatus" style="font-family:var(--font-mono); font-size:0.8rem; color:var(--gray-400);"></div>
+    </div>
+  </form>
+
+  <!-- RESULTS SECTION -->
+  <div class="results-hidden" id="resultsSection">
+    <div class="divider" style="margin:3rem 0;"></div>
+    <div style="font-family:var(--font-mono); font-size:0.7rem; color:var(--gray-400); letter-spacing:0.15em; margin-bottom:1.5rem;">03 — PREDICTION RESULTS</div>
+    <div id="resultsContainer"></div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Setup upload zones
+document.querySelectorAll('.upload-zone').forEach(setupUploadZone);
+
+// Year slider
+const slider = document.getElementById('yearSlider');
+const yearDisplay = document.getElementById('yearDisplay');
+const trainLabel = document.getElementById('trainLabel');
+const testLabel = document.getElementById('testLabel');
+const splitTrain = document.getElementById('splitTrain');
+const splitTest = document.getElementById('splitTest');
+
+slider.addEventListener('input', () => {
+  const yr = parseInt(slider.value);
+  yearDisplay.textContent = yr;
+  trainLabel.textContent = `Training: before ${yr}`;
+  testLabel.textContent = `Test: ${yr} onward`;
+  const trainFlex = yr - 2019;
+  const testFlex = 2027 - yr;
+  splitTrain.style.flex = trainFlex;
+  splitTest.style.flex = testFlex;
+});
+
+// FORM SUBMIT
+document.getElementById('pipeline2Form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const fd = new FormData(form);
+
+  if (!fd.get('pgcb_data') || !fd.get('pgcb_data').name) {
+    showToast('PGCB data file is required', 'error'); return;
+  }
+  if (!fd.get('weather_data') || !fd.get('weather_data').name) {
+    showToast('Weather data file is required', 'error'); return;
+  }
+
+  showLoading('Uploading files...');
+  document.getElementById('submitBtn').disabled = true;
+
+  try {
+    const res = await fetch('/api/run_pipeline2', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (data.error) { hideLoading(); showToast(data.error, 'error'); document.getElementById('submitBtn').disabled = false; return; }
+
+    updateLoadingMsg('Splitting data and training model...');
+    pollJob(data.job_id,
+      (job) => {
+        document.getElementById('submitBtn').disabled = false;
+        showToast('Prediction complete!');
+        loadResults(data.job_id);
+      },
+      (err) => {
+        document.getElementById('submitBtn').disabled = false;
+        showToast('Error: ' + err, 'error');
+      }
+    );
+  } catch(err) {
+    hideLoading();
+    document.getElementById('submitBtn').disabled = false;
+    showToast('Request failed: ' + err.message, 'error');
+  }
+});
+
+async function loadResults(jobId) {
+  try {
+    const res = await fetch(`/api/get_results/${jobId}`);
+    const data = await res.json();
+    if (data.error) { showToast('Could not load chart data: ' + data.error, 'error'); return; }
+
+    const section = document.getElementById('resultsSection');
+    section.classList.remove('results-hidden');
+    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    const container = document.getElementById('resultsContainer');
+    container.innerHTML = '';
+
+    const cols = data.columns;
+    const predIdx = cols.indexOf(data.pred_col);
+    const actualIdx = data.actual_col ? cols.indexOf(data.actual_col) : -1;
+    const dtIdx = cols.indexOf(data.datetime_col);
+
+      
+    // Compute simple stats
+    const mean = data.mean;
+    const mx = data.max;
+    const md = data.deviation;
+    const mape = data.mape;
+
+    container.innerHTML = `
+      <div class="metrics-grid">
+        <div class="metric-card"><div class="metric-val">${data.rows.toLocaleString()}</div><div class="metric-lbl">Total Rows</div></div>
+        <div class="metric-card"><div class="metric-val">${mean.toFixed(0)}</div><div class="metric-lbl">Avg Absolute Error (MW)</div></div>
+        <div class="metric-card"><div class="metric-val">${mx.toFixed(0)}</div><div class="metric-lbl">Avg Demand (MW)</div></div>
+        <div class="metric-card"><div class="metric-val">${md.toFixed(0)}</div><div class="metric-lbl">Mean Deviation (MW)</div></div>
+        <div class="metric-card"><div class="metric-val">${mape.toFixed(2)}%</div><div class="metric-lbl">MAPE</div></div>
+    </div>
+
+      <div class="chart-container" style="height:420px;">
+        <canvas id="mainChart" style="width:100%;height:100%;"></canvas>
+      </div>
+
+      ${actualIdx >= 0 ? `<div class="chart-container" style="height:300px; margin-top:1.5rem;">
+        <canvas id="residualChart" style="width:100%;height:100%;"></canvas>
+      </div>` : ''}
+
+      <div style="margin-top:1.5rem; display:flex; gap:1rem;">
+        <a href="/api/download/${jobId}" class="btn btn-outline">
+          <i class="fas fa-download"></i> Download Predictions (.xlsx)
+        </a>
+      </div>
+
+      <div style="margin-top:2rem;">
+        <div style="font-family:var(--font-mono); font-size:0.7rem; color:var(--gray-400); letter-spacing:0.15em; margin-bottom:1rem;">DATA PREVIEW (first 10 rows)</div>
+        <div style="overflow-x:auto;">
+          <table style="width:100%; border-collapse:collapse; font-family:var(--font-mono); font-size:0.75rem;">
+            <thead>
+              <tr style="border-bottom:1px solid var(--border);">
+                ${cols.map(c => `<th style="padding:0.6rem 1rem; text-align:left; color:var(--gray-400); font-weight:400; white-space:nowrap;">${c}</th>`).join('')}
+              </tr>
+            </thead>
+            <tbody>
+              ${data.data.slice(0,10).map(row => `<tr style="border-bottom:1px solid rgba(255,255,255,0.04);">${row.map((v,i) => `<td style="padding:0.6rem 1rem; color:${i===predIdx?'var(--white)':'var(--gray-400)'}; white-space:nowrap;">${typeof v === 'number' ? v.toFixed(2) : v}</td>`).join('')}</tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+
+    setTimeout(() => renderCharts(data, predIdx, actualIdx, dtIdx), 100);
+
+  } catch(e) {
+    showToast('Error loading results: ' + e.message, 'error');
+  }
+}
+
+function renderCharts(data, predIdx, actualIdx, dtIdx) {
+  const labels = data.data.slice(0, 300).map(r => r[dtIdx]);
+  const predVals = data.data.slice(0, 300).map(r => parseFloat(r[predIdx]));
+
+  const mainCanvas = document.getElementById('mainChart');
+  if (!mainCanvas) return;
+
+  const datasets = [{
+    label: 'Predicted Demand (MW)',
+    data: predVals,
+    borderColor: 'rgba(255,255,255,0.9)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1.5,
+    pointRadius: 0,
+    fill: true,
+    tension: 0.4
+  }];
+
+  let actVals = [];
+  if (actualIdx >= 0) {
+    actVals = data.data.slice(0, 300).map(r => parseFloat(r[actualIdx]));
+    datasets.unshift({
+      label: 'Actual Demand (MW)',
+      data: actVals,
+      borderColor: 'rgba(255,255,255,0.3)',
+      borderWidth: 1,
+      borderDash: [5, 5],
+      pointRadius: 0,
+      fill: false,
+      tension: 0.4
+    });
+  }
+
+  new Chart(mainCanvas, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: '#888', font: { family: 'Space Mono', size: 10 } } },
+        tooltip: {
+          backgroundColor: 'rgba(0,0,0,0.9)', borderColor: 'rgba(255,255,255,0.2)', borderWidth: 1,
+          titleColor: '#fff', bodyColor: '#888',
+          titleFont: { family: 'Space Mono', size: 10 }, bodyFont: { family: 'Space Mono', size: 10 }
+        }
+      },
+      scales: {
+        x: { ticks: { color: '#555', maxTicksLimit: 10, font: { family: 'Space Mono', size: 9 } }, grid: { color: 'rgba(255,255,255,0.04)' }, border: { color: 'rgba(255,255,255,0.1)' } },
+        y: { ticks: { color: '#555', font: { family: 'Space Mono', size: 9 } }, grid: { color: 'rgba(255,255,255,0.04)' }, border: { color: 'rgba(255,255,255,0.1)' } }
+      }
+    }
+  });
+
+  // Residuals chart
+  if (actualIdx >= 0 && actVals.length > 0) {
+    const residualCanvas = document.getElementById('residualChart');
+    if (!residualCanvas) return;
+    const residuals = predVals.map((p, i) => p - (actVals[i] || 0));
+    new Chart(residualCanvas, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Residual (Predicted − Actual)',
+          data: residuals,
+          backgroundColor: residuals.map(v => v > 0 ? 'rgba(255,255,255,0.3)' : 'rgba(200,80,80,0.4)'),
+          borderWidth: 0,
+          borderRadius: 1,
+          barPercentage: 0.8,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { color: '#888', font: { family: 'Space Mono', size: 10 } } },
+          tooltip: {
+            backgroundColor: 'rgba(0,0,0,0.9)', borderColor: 'rgba(255,255,255,0.2)', borderWidth: 1,
+            titleColor: '#fff', bodyColor: '#888', titleFont: { family: 'Space Mono', size: 10 }, bodyFont: { family: 'Space Mono', size: 10 }
+          }
+        },
+        scales: {
+          x: { ticks: { color: '#555', maxTicksLimit: 10, font: { family: 'Space Mono', size: 9 } }, grid: { color: 'rgba(255,255,255,0.04)' }, border: { color: 'rgba(255,255,255,0.1)' } },
+          y: { ticks: { color: '#555', font: { family: 'Space Mono', size: 9 } }, grid: { color: 'rgba(255,255,255,0.04)' }, border: { color: 'rgba(255,255,255,0.1)' } }
+        }
+      }
+    });
+  }
+}
+</script>
+{% endblock %}

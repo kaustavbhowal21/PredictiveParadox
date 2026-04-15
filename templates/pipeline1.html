@@ -1,0 +1,407 @@
+{% extends "base.html" %}
+{% block title %}Pipeline I — Predictive Paradox{% endblock %}
+
+{% block head %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+.page-container { max-width: 1300px; margin: 0 auto; padding: 3rem 2.5rem 8rem; }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+.test-tabs-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; }
+.add-tab-btn { display:inline-flex; align-items:center; gap:0.5rem; padding:0.5rem 1rem; font-family:var(--font-mono); font-size:0.7rem; letter-spacing:0.1em; background:var(--surface); border:1px solid var(--border); color:var(--gray-400); cursor:pointer; transition:var(--transition); }
+.add-tab-btn:hover { border-color:var(--border-bright); color:var(--white); }
+.remove-tab-btn { margin-left:auto; width:24px; height:24px; background:transparent; border:1px solid rgba(200,50,50,0.3); color:rgba(200,80,80,0.8); cursor:pointer; font-size:0.7rem; display:inline-flex; align-items:center; justify-content:center; transition:var(--transition); }
+.remove-tab-btn:hover { background:rgba(200,50,50,0.15); border-color:rgba(200,80,80,0.6); }
+.test-tab-panel { padding:1.5rem 0; }
+.results-section { margin-top:3rem; }
+.chart-container { position:relative; height:350px; background:var(--surface); border:1px solid var(--border); padding:1.5rem; margin-top:1.5rem; }
+.metrics-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(160px,1fr)); gap:1rem; margin-top:1.5rem; }
+.metric-card { background:var(--surface); border:1px solid var(--border); padding:1.5rem; text-align:center; }
+.metric-val { font-family:var(--font-display); font-size:1.8rem; font-weight:700; }
+.metric-lbl { font-family:var(--font-mono); font-size:0.65rem; color:var(--gray-400); letter-spacing:0.15em; margin-top:0.3rem; }
+.optional-badge { font-family:var(--font-mono); font-size:0.6rem; color:var(--gray-600); background:var(--surface); border:1px solid var(--border); padding:0.15rem 0.5rem; vertical-align:middle; }
+.results-hidden { display:none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-container">
+
+  <!-- Header -->
+  <div class="animate-in" style="margin-bottom:3rem;">
+    <div class="section-tag">
+      <a href="/" style="color:inherit; text-decoration:none;">Home</a> / Pipeline I
+    </div>
+    <h1 style="font-size:2.5rem; text-transform:uppercase; margin-bottom:0.75rem;">
+      Pipeline <span style="color:var(--gray-400);">I</span>
+    </h1>
+    <p style="color:var(--gray-400); font-family:var(--font-body); font-size:1rem; max-width:600px;">Upload separate training and test datasets. Supports multiple test dataset tabs for the same trained model.</p>
+  </div>
+
+  <form id="pipeline1Form" enctype="multipart/form-data">
+
+    <!-- TRAINING DATA -->
+    <div class="animate-in delay-1" style="margin-bottom:2.5rem;">
+      <div class="card" style="padding:2rem;">
+        <div style="font-family:var(--font-mono); font-size:0.7rem; color:var(--gray-400); letter-spacing:0.15em; margin-bottom:1.5rem;">
+          01 — TRAINING DATA
+        </div>
+        <div class="two-col" style="gap:1.5rem; margin-bottom:1.5rem;">
+          <div>
+            <label class="field-label">Demand Data <span style="color:var(--gray-600);">(.xlsx)</span></label>
+            <div class="upload-zone" id="zone_train_demand">
+              <input type="file" name="train_demand" accept=".xlsx,.xls" required>
+              <div class="upload-icon"><i class="fas fa-bolt"></i></div>
+              <p>Drop train_demand_data.xlsx</p>
+            </div>
+          </div>
+          <div>
+            <label class="field-label">Weather Data <span style="color:var(--gray-600);">(.xlsx)</span></label>
+            <div class="upload-zone" id="zone_train_weather">
+              <input type="file" name="train_weather" accept=".xlsx,.xls" required>
+              <div class="upload-icon"><i class="fas fa-cloud"></i></div>
+              <p>Drop train_weather_data.xlsx</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Economic (optional) -->
+        <div>
+          <label class="field-label">Economic Indicators <span class="optional-badge">OPTIONAL</span> <span style="color:var(--gray-600); font-family:var(--font-mono); font-size:0.65rem;">(.csv)</span></label>
+          <div class="upload-zone" id="zone_economic" style="padding:1.5rem;">
+            <input type="file" name="economic" accept=".csv,.xlsx,.xls">
+            <div class="upload-icon" style="font-size:1.4rem;"><i class="fas fa-chart-line"></i></div>
+            <p style="font-size:0.8rem;">Drop economic_full_1.csv (optional)</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TEST DATASETS -->
+    <div class="animate-in delay-2" style="margin-bottom:2.5rem;">
+      <div class="card" style="padding:2rem;">
+        <div class="test-tabs-header">
+          <div style="font-family:var(--font-mono); font-size:0.7rem; color:var(--gray-400); letter-spacing:0.15em;">
+            02 — TEST DATASETS
+          </div>
+          <button type="button" class="add-tab-btn" id="addTestTabBtn" onclick="addTestTab()">
+            <i class="fas fa-plus"></i> Add Test Dataset
+          </button>
+        </div>
+
+        <!-- Tab bar -->
+        <div class="tab-bar" id="testTabBar">
+          <button type="button" class="tab-btn active" data-tab="test-0" onclick="switchTestTab(this, 'test-0')">Dataset 1</button>
+        </div>
+
+        <!-- Tab panels container -->
+        <div id="testTabPanels">
+          <div class="tab-panel test-tab-panel active" id="test-0">
+            <div class="two-col" style="gap:1.5rem;">
+              <div>
+                <label class="field-label">Test Demand Data <span style="color:var(--gray-600);">(.xlsx)</span></label>
+                <div class="upload-zone" id="zone_test_demand_0">
+                  <input type="file" name="test_demand_0" accept=".xlsx,.xls">
+                  <div class="upload-icon"><i class="fas fa-bolt"></i></div>
+                  <p>Drop test_demand_data.xlsx</p>
+                </div>
+              </div>
+              <div>
+                <label class="field-label">Test Weather Data <span style="color:var(--gray-600);">(.xlsx)</span></label>
+                <div class="upload-zone" id="zone_test_weather_0">
+                  <input type="file" name="test_weather_0" accept=".xlsx,.xls">
+                  <div class="upload-icon"><i class="fas fa-cloud"></i></div>
+                  <p>Drop test_weather_data.xlsx</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SUBMIT -->
+    <div class="animate-in delay-3" style="display:flex; gap:1rem; align-items:center;">
+      <button type="submit" class="btn btn-primary" id="submitBtn">
+        <i class="fas fa-play"></i>
+        Train & Predict
+      </button>
+      <div id="runStatus" style="font-family:var(--font-mono); font-size:0.8rem; color:var(--gray-400);"></div>
+    </div>
+  </form>
+
+  <!-- RESULTS SECTION -->
+  <div class="results-section results-hidden" id="resultsSection">
+    <div class="divider" style="margin:3rem 0;"></div>
+    <div style="font-family:var(--font-mono); font-size:0.7rem; color:var(--gray-400); letter-spacing:0.15em; margin-bottom:1.5rem;">03 — PREDICTION RESULTS</div>
+
+    <div class="tab-bar" id="resultTabBar"></div>
+    <div id="resultTabPanels"></div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let testTabCount = 1;
+
+function switchTestTab(btn, tabId) {
+  document.querySelectorAll('#testTabBar .tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#testTabPanels .tab-panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(tabId).classList.add('active');
+}
+
+function addTestTab() {
+  const idx = testTabCount;
+  testTabCount++;
+
+  // Add tab button
+  const tabBar = document.getElementById('testTabBar');
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'tab-btn';
+  btn.dataset.tab = `test-${idx}`;
+  btn.innerHTML = `Dataset ${idx+1} <button type="button" class="remove-tab-btn" onclick="removeTestTab(event, ${idx})" title="Remove"><i class="fas fa-times"></i></button>`;
+  btn.addEventListener('click', (e) => {
+    if (!e.target.closest('.remove-tab-btn')) switchTestTab(btn, `test-${idx}`);
+  });
+  tabBar.appendChild(btn);
+
+  // Add tab panel
+  const panel = document.createElement('div');
+  panel.className = 'tab-panel test-tab-panel';
+  panel.id = `test-${idx}`;
+  panel.innerHTML = `
+    <div class="two-col" style="gap:1.5rem;">
+      <div>
+        <label class="field-label">Test Demand Data <span style="color:var(--gray-600);">(.xlsx)</span></label>
+        <div class="upload-zone" id="zone_test_demand_${idx}">
+          <input type="file" name="test_demand_${idx}" accept=".xlsx,.xls">
+          <div class="upload-icon"><i class="fas fa-bolt"></i></div>
+          <p>Drop test_demand_data.xlsx</p>
+        </div>
+      </div>
+      <div>
+        <label class="field-label">Test Weather Data <span style="color:var(--gray-600);">(.xlsx)</span></label>
+        <div class="upload-zone" id="zone_test_weather_${idx}">
+          <input type="file" name="test_weather_${idx}" accept=".xlsx,.xls">
+          <div class="upload-icon"><i class="fas fa-cloud"></i></div>
+          <p>Drop test_weather_data.xlsx</p>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('testTabPanels').appendChild(panel);
+
+  // Setup upload zones
+  panel.querySelectorAll('.upload-zone').forEach(setupUploadZone);
+
+  // Switch to new tab
+  switchTestTab(btn, `test-${idx}`);
+}
+
+function removeTestTab(e, idx) {
+  e.stopPropagation();
+  const tabBtn = document.querySelector(`[data-tab="test-${idx}"]`);
+  const tabPanel = document.getElementById(`test-${idx}`);
+  if (!tabBtn || !tabPanel) return;
+  const wasActive = tabBtn.classList.contains('active');
+  tabBtn.remove();
+  tabPanel.remove();
+  if (wasActive) {
+    const firstBtn = document.querySelector('#testTabBar .tab-btn');
+    if (firstBtn) switchTestTab(firstBtn, firstBtn.dataset.tab);
+  }
+}
+
+// Setup initial zones
+document.querySelectorAll('.upload-zone').forEach(setupUploadZone);
+
+// FORM SUBMIT
+document.getElementById('pipeline1Form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const fd = new FormData(form);
+
+  // Validate required files
+  if (!fd.get('train_demand') || !fd.get('train_demand').name) {
+    showToast('Training demand file is required', 'error'); return;
+  }
+  if (!fd.get('train_weather') || !fd.get('train_weather').name) {
+    showToast('Training weather file is required', 'error'); return;
+  }
+
+  showLoading('Uploading files...');
+  document.getElementById('submitBtn').disabled = true;
+
+  try {
+    const res = await fetch('/api/run_pipeline1', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (data.error) { hideLoading(); showToast(data.error, 'error'); document.getElementById('submitBtn').disabled = false; return; }
+
+    updateLoadingMsg('Training model...');
+    pollJob(data.job_id,
+      (job) => {
+        document.getElementById('submitBtn').disabled = false;
+        showToast('Prediction complete!');
+        loadResults(data.job_id, 1);
+      },
+      (err) => {
+        document.getElementById('submitBtn').disabled = false;
+        showToast('Error: ' + err, 'error');
+      }
+    );
+  } catch(err) {
+    hideLoading();
+    document.getElementById('submitBtn').disabled = false;
+    showToast('Request failed: ' + err.message, 'error');
+  }
+});
+
+async function loadResults(jobId, pipeline) {
+  try {
+    const res = await fetch(`/api/get_results/${jobId}`);
+    const data = await res.json();
+    if (data.error) { showToast('Could not load chart data: ' + data.error, 'error'); return; }
+
+    const section = document.getElementById('resultsSection');
+    section.classList.remove('results-hidden');
+    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    const tabBar = document.getElementById('resultTabBar');
+    const panels = document.getElementById('resultTabPanels');
+    tabBar.innerHTML = '';
+    panels.innerHTML = '';
+
+    // Single result panel (can be extended for multi-tab)
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'tab-btn active';
+    btn.textContent = 'Dataset 1';
+    tabBar.appendChild(btn);
+
+    const panel = buildResultPanel(jobId, data, 'result-0');
+    btn.onclick = () => {
+      document.querySelectorAll('#resultTabBar .tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      panels.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      panel.classList.add('active');
+    };
+    panels.appendChild(panel);
+    setTimeout(() => renderChart(panel, data), 100);
+
+  } catch(e) {
+    showToast('Error loading results: ' + e.message, 'error');
+  }
+}
+
+function buildResultPanel(jobId, data, panelId) {
+  const panel = document.createElement('div');
+  panel.className = 'tab-panel active';
+  panel.id = panelId;
+
+  const cols = data.columns;
+  const dtIdx = cols.indexOf(data.datetime_col);
+  const predIdx = cols.indexOf(data.pred_col);
+  const actualIdx = data.actual_col ? cols.indexOf(data.actual_col) : -1;
+
+  // Compute simple stats
+  const mean = data.mean;
+  const mx = data.max;
+  const md = data.deviation;
+  const mape = data.mape;
+
+  panel.innerHTML = `
+    <div class="metrics-grid" style="margin-top:1.5rem;">
+      <div class="metric-card"><div class="metric-val">${data.rows.toLocaleString()}</div><div class="metric-lbl">Total Rows</div></div>
+      <div class="metric-card"><div class="metric-val">${mean.toFixed(0)}</div><div class="metric-lbl">Avg Absolute Error (MW)</div></div>
+      <div class="metric-card"><div class="metric-val">${mx.toFixed(0)}</div><div class="metric-lbl">Avg Demand (MW)</div></div>
+      <div class="metric-card"><div class="metric-val">${md.toFixed(0)}</div><div class="metric-lbl">Mean Deviation (MW)</div></div>
+      <div class="metric-card"><div class="metric-val">${mape.toFixed(2)}%</div><div class="metric-lbl">MAPE</div></div>
+    </div>
+    <div class="chart-container" style="height:380px; margin-top:1.5rem; padding:1.5rem;">
+      <canvas id="chart-${panelId}" style="width:100%;height:100%;"></canvas>
+    </div>
+    <div style="margin-top:1.5rem; display:flex; gap:1rem;">
+      <a href="/api/download/${jobId}" class="btn btn-outline">
+        <i class="fas fa-download"></i> Download Predictions (.xlsx)
+      </a>
+    </div>
+    <div style="margin-top:2rem;">
+      <div style="font-family:var(--font-mono); font-size:0.7rem; color:var(--gray-400); letter-spacing:0.15em; margin-bottom:1rem;">PREVIEW (first ${Math.min(data.preview_rows, 10)} rows)</div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse; font-family:var(--font-mono); font-size:0.75rem;">
+          <thead>
+            <tr style="border-bottom:1px solid var(--border);">
+              ${cols.map(c => `<th style="padding:0.6rem 1rem; text-align:left; color:var(--gray-400); font-weight:400; white-space:nowrap;">${c}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            ${data.data.slice(0,10).map(row => `<tr style="border-bottom:1px solid rgba(255,255,255,0.04);">${row.map((v,i) => `<td style="padding:0.6rem 1rem; color:${i===predIdx?'var(--white)':'var(--gray-400)'}; white-space:nowrap;">${typeof v === 'number' ? v.toFixed(2) : v}</td>`).join('')}</tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+
+  panel._chartData = { data, panelId, actualIdx, predIdx, dtIdx, cols };
+  return panel;
+}
+
+function renderChart(panel, data) {
+  const { panelId, actualIdx, predIdx, dtIdx } = panel._chartData;
+  const canvas = document.getElementById(`chart-${panelId}`);
+  if (!canvas) return;
+
+  const labels = data.data.slice(0, 200).map(r => r[dtIdx]);
+  const predVals = data.data.slice(0, 200).map(r => parseFloat(r[predIdx]));
+  const datasets = [{
+    label: 'Predicted Demand (MW)',
+    data: predVals,
+    borderColor: 'rgba(255,255,255,0.9)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1.5,
+    pointRadius: 0,
+    fill: true,
+    tension: 0.4
+  }];
+
+  if (actualIdx >= 0) {
+    datasets.unshift({
+      label: 'Actual Demand (MW)',
+      data: data.data.slice(0, 200).map(r => parseFloat(r[actualIdx])),
+      borderColor: 'rgba(255,255,255,0.35)',
+      borderWidth: 1,
+      borderDash: [4, 4],
+      pointRadius: 0,
+      fill: false,
+      tension: 0.4
+    });
+  }
+
+  new Chart(canvas, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: '#888', font: { family: 'Space Mono', size: 10 } } },
+        tooltip: {
+          backgroundColor: 'rgba(0,0,0,0.9)', borderColor: 'rgba(255,255,255,0.2)', borderWidth: 1,
+          titleColor: '#fff', bodyColor: '#888', titleFont: { family: 'Space Mono', size: 10 }, bodyFont: { family: 'Space Mono', size: 10 }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: '#555', maxTicksLimit: 8, font: { family: 'Space Mono', size: 9 } },
+          grid: { color: 'rgba(255,255,255,0.04)' }, border: { color: 'rgba(255,255,255,0.1)' }
+        },
+        y: {
+          ticks: { color: '#555', font: { family: 'Space Mono', size: 9 } },
+          grid: { color: 'rgba(255,255,255,0.04)' }, border: { color: 'rgba(255,255,255,0.1)' }
+        }
+      }
+    }
+  });
+}
+</script>
+{% endblock %}
