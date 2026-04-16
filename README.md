@@ -1,228 +1,260 @@
-# Predictive Paradox
+# ⚡ Predictive Paradox
 
-Electricity demand forecasting pipeline built for the IITG.ai recruitment task. The project combines historical power demand data, weather observations, anomaly handling, feature engineering, and gradient-boosted regressors to predict the next-hour electricity demand.
+**Electricity Demand Forecasting Pipeline + Interactive Web App**
 
-## Overview
+A production-style machine learning pipeline and web interface built for the IITG.ai recruitment challenge. This project forecasts short-term electricity demand using historical load data, weather signals, and advanced feature engineering—while strictly adhering to classical ML constraints.
 
-The pipeline:
+---
 
-1. Loads raw demand and weather files from the `dataset/` directory.
-2. Cleans timestamps, removes duplicate records, and repairs missing or zero-valued generation mix fields.
-3. Smooths half-hour demand readings into hourly demand values.
-4. Detects and replaces demand anomalies using a rolling z-score approach.
-5. Merges cleaned demand data with weather data.
-6. Builds calendar, lag, and rolling-window features.
-7. Trains a regressor on pre-2024 data and evaluates on 2024 data.
-8. Exports prediction results and visualization artifacts.
+## 🚀 Project Highlights
 
-## Repository Structure
+* 📊 **End-to-end ML pipeline** (data → features → model → evaluation)
+* ⚡ **LightGBM / XGBoost forecasting models**
+* 🌦️ Incorporates **weather-driven demand signals**
+* 🧠 Advanced **time-series feature engineering (lags, rolling stats, cyclic encoding)**
+* 🧹 Robust **anomaly detection & correction**
+* 🌐 **Flask-based web interface** for interactive predictions
+* 📈 Real-time **visualizations + downloadable results**
 
-```text
-PredictiveParadox/
-|-- dataset/
-|   |-- PGCB_date_power_demand.xlsx
-|   |-- weather_data.xlsx
-|   |-- economic_full_1.csv
-|   `-- prediction.xlsx
-|-- graphs/
-|   |-- actual_vs_predicted.png
-|   `-- feature_importance.png
-|-- pipeline/
-|   |-- __init__.py
-|   |-- anomaly.py
-|   |-- data.py
-|   |-- feature.py
-|   |-- model.py
-|   |-- predictor.py
-|   `-- process.py
-|-- main.py
-|-- predictive_paradox_pipeline.ipynb
-|-- requirements.txt
-`-- README.md
+---
+
+## 🧩 Problem Context
+
+Electricity demand forecasting is critical for grid stability and cost optimization.
+This project focuses on **short-term forecasting (t+1)** using tabular ML models, requiring manual encoding of temporal dependencies. 
+
+---
+
+## 🏗️ Architecture Overview
+
+```
+Raw Data → Cleaning → Anomaly Handling → Feature Engineering → Model → Prediction → Visualization
 ```
 
-## Data Requirements
+---
 
-The code expects the following files inside `dataset/` with these exact names:
+## 📁 Repository Structure
 
-- `PGCB_date_power_demand.xlsx`: historical electricity generation and demand data
-- `weather_data.xlsx`: weather metadata and hourly weather observations
+```
+PredictiveParadox/
+│
+├── dataset/                  # Input + output data
+├── graphs/                   # Generated visualizations
+├── pipeline/                 # Core ML pipeline modules
+│   ├── data.py               # Data loading
+│   ├── process.py            # Preprocessing
+│   ├── anomaly.py            # Outlier handling
+│   ├── feature.py            # Feature engineering
+│   ├── model.py              # Model training
+│   ├── predictor.py          # Prediction + evaluation
+│   └── ...
+│
+├── main.py                   # CLI entry point
+├── app.py                    # Flask web app
+├── predictive_paradox_pipeline.ipynb  # Exploration notebook
+├── requirements.txt
+└── README.md
+```
 
-`economic_full_1.csv` is present in the repository, but it is not currently consumed by the Python pipeline.
+---
 
-## How It Works
+## ⚙️ Installation
 
-### 1. Data Loading
+```bash
+git clone <repo-url>
+cd PredictiveParadox
 
-`pipeline.data.Data` loads:
-
-- demand data from `dataset/PGCB_date_power_demand.xlsx`
-- location metadata from the first two rows of `dataset/weather_data.xlsx`
-- weather observations from the remaining rows of `dataset/weather_data.xlsx`
-
-### 2. Preprocessing
-
-`pipeline.process.DataProcessor` performs:
-
-- datetime parsing and sorting
-- duplicate timestamp removal
-- zero and missing generation-mix repair using nearby valid rows
-- resampling from half-hour intervals to hourly intervals
-
-### 3. Anomaly Handling
-
-`pipeline.anomaly.Anomaly` identifies outliers in `demand_mw` using a centered rolling window of 168 hours and a z-score threshold of 2.5, then replaces anomalous values with the rolling mean.
-
-### 4. Feature Engineering
-
-`pipeline.feature.Feature` adds:
-
-- calendar features such as hour, month, day of week, quarter, and weekend flag
-- cyclical encodings using sine and cosine transforms
-- lag features from 1 hour to 336 hours
-- rolling statistics such as mean, standard deviation, minimum, and maximum
-- `target_demand_mw` as the next-hour prediction target
-
-### 5. Modeling
-
-The dataset is split by year:
-
-- training set: all rows before 2024
-- test set: rows from 2024
-
-Supported regressors:
-
-- `LGBR`: LightGBM regressor
-- `XGBR`: XGBoost regressor
-
-The default example in `main.py` uses LightGBM.
-
-### 6. Evaluation and Outputs
-
-`pipeline.predictor.Predictor`:
-
-- predicts on the 2024 holdout set
-- computes MAPE
-- saves an actual-vs-predicted plot to `graphs/actual_vs_predicted.png`
-- saves feature importance to `graphs/feature_importance.png`
-- exports the final prediction workbook to `dataset/prediction.xlsx`
-
-## Installation
-
-Create and activate a virtual environment, then install dependencies:
-
-```powershell
 python -m venv .venv
-.venv\Scripts\Activate.ps1
+source .venv/bin/activate   # or .venv\Scripts\Activate.ps1 (Windows)
+
 pip install -r requirements.txt
 ```
 
-## Usage
+---
 
-Run the default pipeline:
+## ▶️ Usage
 
-```powershell
+### Run ML Pipeline (CLI)
+
+```bash
 python main.py
 ```
 
-`main.py` currently runs:
+Default execution:
 
 ```python
 import pipeline as p
 
-pipe = p.PipeLine('dataset/', True)
-pipe.process()
-pipe.predict('prediction.xlsx', regressor='LGBR')
+pipe = p.PipeLine1(['dataset/train_demand_data.xlsx', 'dataset/train_weather_data.xlsx'], verbose=True)
+pipe.train_model()
+pipe.upload(['dataset/test_demand_data.xlsx', 'dataset/test_weather_data.xlsx'])
+pipe.predict('prediction1.xlsx')
+
+pipe = p.PipeLine2(['dataset/PGCB_date_power_demand.xlsx', 'dataset/weather_data.xlsx'], verbose=True)
+pipe.split(2024)
+pipe.train_model()
+pipe.predict('prediction2.xlsx')
 ```
-
-To switch the model, change the regressor argument to `XGBR`.
-
-## Output Files
-
-After a successful run, you should expect:
-
-- `dataset/prediction.xlsx`: actual and predicted demand values for the test period
-- `graphs/actual_vs_predicted.png`: demand forecast comparison plot
-- `graphs/feature_importance.png`: feature ranking plot
-
-## Key Dependencies
-
-Major libraries used in this project:
-
-- `pandas`
-- `numpy`
-- `scikit-learn`
-- `lightgbm`
-- `xgboost`
-- `matplotlib`
-- `seaborn`
-- `openpyxl`
-
-## Notes
-
-- The pipeline assumes the dataset filenames and folder structure remain unchanged.
-- Prediction output is saved inside `dataset/`, even though only the filename is passed to `pipe.predict(...)`.
-- Visualization display depends on the `verbose` flag. Image files are still written to the `graphs/` directory.
-- The notebook `predictive_paradox_pipeline.ipynb` appears to be the exploratory or development version of the workflow, while `main.py` is the runnable script entry point.
 
 ---
 
-## Flask Setup
+### Run Web App
 
 ```bash
-# Run the app
 python app.py
-# → Open http://localhost:5000
 ```
 
----
-
-## Features
-
-### Pipeline I (`/pipeline1`)
-- Upload **training demand** + **training weather** files
-- Upload optional **economic CSV** (passed to pipeline if present)
-- Add **multiple test dataset tabs** (Dataset 1, Dataset 2, ...) for the same trained model
-- Each tab has its own demand + weather upload zones
-- On submit: calls `PipeLine1(train_files).train_model()` → `.upload(test_files)` → `.predict()`
-- Results page: metrics, interactive Chart.js line chart, data preview table, download button
-
-### Pipeline II (`/pipeline2`)
-- Upload **PGCB power demand** + **weather** files
-- Optional **economic CSV**
-- Interactive **year-split slider** (2019–2026) with visual train/test proportion bar
-- On submit: calls `PipeLine2(data_files).split(year).train_model().predict()`
-- Results page: metrics including MAPE, actual vs predicted chart, residuals bar chart, download
-
-### UX
-- **Loading overlay** with animated orbital rings while ML model trains
-- Live **progress messages** polled every 1.5 seconds from backend
-- **Toast notifications** for errors and completion
-- **Drag-and-drop** file upload zones
-- Fully responsive dark/white shiny theme matching the problem statement aesthetic
+Open:
+👉 [http://localhost:5000](http://localhost:5000)
 
 ---
 
-## How Jobs Work
+## 🔬 Machine Learning Pipeline
 
-The backend uses Python `threading` + an in-memory `jobs` dict:
-1. POST to `/api/run_pipeline1` or `/api/run_pipeline2` → saves files, starts thread, returns `job_id`
-2. Frontend polls `/api/job_status/<job_id>` every 1.5s
-3. When status = `"done"`, frontend fetches `/api/get_results/<job_id>` for chart data
-4. Download via `/api/download/<job_id>`
+### 1. Data Processing
+
+* Timestamp parsing & sorting
+* Duplicate removal
+* Missing/zero-value correction
+* Resampling (half-hour → hourly)
+
+### 2. Anomaly Detection
+
+* Rolling window (168 hours)
+* Z-score threshold = 2.5
+* Replacement with rolling mean
+
+### 3. Feature Engineering
+
+* ⏰ Calendar features (hour, weekday, month)
+* 🔁 Cyclical encoding (sin/cos transforms)
+* 📉 Lag features (1 → 336 hours)
+* 📊 Rolling statistics (mean, std, min, max)
+* 🎯 Target: `demand_mw (t+1)`
+
+### 4. Modeling
+
+* LightGBM (default)
+* XGBoost (optional)
+* Chronological split:
+
+  * Train: pre-2024
+  * Test: 2024
+
+### 5. Evaluation
+
+* Metric: **MAPE (Mean Absolute Percentage Error)**
+* Feature importance analysis
 
 ---
 
-## Extending for Multi-Tab Predictions
+## 📊 Outputs
 
-The backend currently passes the **first test tab** to `PipeLine1`. To support multiple test tabs predicting independently, extend `run_pipeline1_job` to loop over `test_file_groups` and call `pipe.upload(...)` + `pipe.predict(...)` for each group, storing multiple output paths in `jobs[job_id]['outputs']`.
+After execution:
+
+* `dataset/prediction.xlsx` → predictions
+* `graphs/anomalous_demand.png` → demand_mw plot with anomalies
+* `graphs/clean_demand.png` → cleaned of anomalies
+* `graphs/actual_vs_predicted.png` → forecast visualization
+* `graphs/feature_importance.png` → model insights
 
 ---
 
-## Theme
+## 🌐 Web Application Features
 
-Inspired by the Predictive Paradox PDF cover:
-- Pure black background with starfield and perspective grid floor
-- **Orbitron** display font, **Rajdhani** body, **Space Mono** for data/labels  
-- White-on-black with glowing borders and subtle radial gradients
-- Orbital animation for loading screen
+### 🔹 Pipeline I (`/pipeline1`)
+
+* Upload training + multiple test datasets
+* Supports batch prediction workflows
+* Interactive charts + downloadable outputs
+
+### 🔹 Pipeline II (`/pipeline2`)
+
+* Upload full dataset
+* Select train/test split via slider
+* Visual evaluation (MAPE, residuals, trends)
+
+---
+
+## 💡 UX Features
+
+* 🔄 Live progress tracking (polling backend jobs)
+* 🌀 Animated loading states
+* 📦 Drag-and-drop uploads
+* 📊 Chart.js visualizations
+* 🎨 Dark futuristic UI (inspired by project theme)
+
+---
+
+## ⚡ Backend Design
+
+* Asynchronous execution using **threading**
+* Job-based architecture:
+
+```
+Request → Job ID → Background Execution → Poll Status → Fetch Results
+```
+
+Endpoints:
+
+* `/api/run_pipelineX`
+* `/api/job_status/<id>`
+* `/api/get_results/<id>`
+* `/api/download/<id>`
+
+---
+
+## 🔧 Tech Stack
+
+### ML & Data
+
+* pandas, numpy
+* scikit-learn
+* lightgbm, xgboost
+
+### Visualization
+
+* matplotlib, seaborn
+* Chart.js (frontend)
+
+### Web
+
+* Flask
+* HTML/CSS/JS
+
+---
+
+## 📈 Future Improvements
+
+* Multi-horizon forecasting (t+1 → t+k)
+* Hyperparameter optimization (Optuna)
+* Feature selection / SHAP explainability
+* Economic data integration
+* Model ensembling
+
+---
+
+## ⚠️ Notes
+
+* Dataset filenames must remain unchanged
+* Economic data currently unused in pipeline
+* Notebook is exploratory; `main.py` is production entry point
+
+---
+
+## 🎨 Theme Inspiration
+
+Inspired by the **Predictive Paradox concept**:
+
+* Dark, futuristic UI
+* Orbital animations
+* Data-centric minimalism
+
+---
+
+## 🤝 Contribution
+
+This project was built as part of a recruitment challenge.
+Contributions and improvements are welcome!
+
+---
