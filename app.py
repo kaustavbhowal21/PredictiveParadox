@@ -220,7 +220,7 @@ def get_results(job_id):
         import pandas as pd
         df = pd.read_excel(output_path)
         # Return first 500 rows for charting
-        preview = df.head(len(df))
+        preview = df.head(100)
         cols = list(preview.columns)
         data = preview.values.tolist()
         # Try to find datetime and demand columns
@@ -233,7 +233,7 @@ def get_results(job_id):
         peak = df[pred_col].mean()
         deviation = (error**2).mean()**0.5
         mape = (error / df[actual_col]).mean() * 100
-
+        
         return jsonify({
             'mean': mean,
             'max': peak,
@@ -263,4 +263,4 @@ def download_result(job_id):
                      download_name=f'prediction_pipeline{job["pipeline"]}.xlsx')
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(debug=False, port=5000)

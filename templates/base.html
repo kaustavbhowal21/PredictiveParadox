@@ -629,7 +629,7 @@ function showToast(msg, type = 'info') {
   t.className = `toast ${type}`;
   t.textContent = msg;
   ct.appendChild(t);
-  setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateX(20px)'; t.style.transition = 'all 0.3s'; setTimeout(() => t.remove(), 300); }, 4000);
+  setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateX(20px)'; t.style.transition = 'all 0.3s'; setTimeout(() => t.remove(), 300); }, 10000);
 }
 
 function setupUploadZone(zone) {
